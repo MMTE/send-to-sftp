@@ -1,1 +1,138 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
+# send-to-sftp — main entrypoint
+# Right-click "Send to SFTP" for Linux file managers
+
+set -euo pipefail
+
+# XDG directories
+: "${XDG_CONFIG_HOME:=${HOME}/.config}"
+: "${XDG_DATA_HOME:=${HOME}/.local/share}"
+
+LIB_DIR="${XDG_DATA_HOME}/send-to-sftp"
+CONFIG_DIR="${XDG_CONFIG_HOME}/send-to-sftp"
+CONFIG_FILE="${CONFIG_DIR}/config"
+
+# Development fallback: if installed libs don't exist, try ./lib/
+if [[ ! -d "$LIB_DIR" ]]; then
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    dev_lib="${script_dir}/../lib"
+    if [[ -d "$dev_lib" ]]; then
+        LIB_DIR="$dev_lib"
+    fi
+fi
+
+# ─── Source libraries ─────────────────────────────────────
+for lib in parse_ssh.sh ui.sh remote_browse.sh transport.sh recent.sh notify.sh; do
+    if [[ ! -f "${LIB_DIR}/${lib}" ]]; then
+        echo "Error: missing library ${LIB_DIR}/${lib}" >&2
+        exit 1
+    fi
+    # shellcheck source=/dev/null
+    source "${LIB_DIR}/${lib}"
+done
+
+# ─── Load user config ─────────────────────────────────────
+if [[ -f "$CONFIG_FILE" ]]; then
+    # shellcheck source=/dev/null
+    source "$CONFIG_FILE"
+fi
+
+# ─── Validate arguments ───────────────────────────────────
+if (( $# == 0 )); then
+    ui_error "No files selected. Please select files or folders to upload."
+    exit 1
+fi
+
+missing=()
+for path in "$@"; do
+    if [[ ! -e "$path" ]]; then
+        missing+=("$path")
+    fi
+done
+
+if (( ${#missing[@]} > 0 )); then
+    for path in "${missing[@]}"; do
+        ui_error "Path does not exist: ${path}"
+    done
+    exit 1
+fi
+
+# ─── Get host list ────────────────────────────────────────
+mapfile -t host_array < <(list_hosts)
+
+if (( ${#host_array[@]} == 0 )); then
+    ui_error "No hosts found in ~/.ssh/config.\nPlease add at least one Host entry."
+    exit 1
+fi
+
+# ─── Get recent destinations ──────────────────────────────
+mapfile -t recent_entries < <(recent_list || true)
+
+# Build picker list: deduped with recent hosts first
+declare -A seen_hosts=()
+picker_hosts=()
+
+if (( ${#recent_entries[@]} > 0 )); then
+    for entry in "${recent_entries[@]}"; do
+        entry_host="${entry%%:*}"
+        if [[ -v "seen_hosts[$entry_host]" ]]; then
+            continue
+        fi
+        seen_hosts["$entry_host"]=1
+        picker_hosts+=("$entry_host")
+    done
+fi
+
+for host in "${host_array[@]}"; do
+    if [[ -v "seen_hosts[$host]" ]]; then
+        continue
+    fi
+    seen_hosts["$host"]=1
+    picker_hosts+=("$host")
+done
+
+# ─── Pick host ────────────────────────────────────────────
+selected_host=""
+selected_host=$(ui_pick_host "${picker_hosts[@]}") || true
+if [[ -z "$selected_host" ]]; then
+    exit 0
+fi
+
+# ─── Determine starting path ──────────────────────────────
+start_path="~"
+if (( ${#recent_entries[@]} > 0 )); then
+    for entry in "${recent_entries[@]}"; do
+        entry_host="${entry%%:*}"
+        entry_path="${entry#*:}"
+        if [[ "$entry_host" == "$selected_host" ]]; then
+            start_path="$entry_path"
+            break
+        fi
+    done
+fi
+
+# ─── Pick remote path ─────────────────────────────────────
+remote_dir=""
+remote_dir=$(remote_browse "$selected_host" "$start_path" 2>/dev/null) || \
+    remote_dir=$(ui_pick_path "$selected_host" "$start_path") || true
+
+if [[ -z "$remote_dir" ]]; then
+    exit 0
+fi
+
+# ─── Transfer ─────────────────────────────────────────────
+file_count=$(transport_count_items "$@")
+transport_send_with_progress "$selected_host" "$remote_dir" "$@"
+rc=$?
+
+# ─── Result ───────────────────────────────────────────────
+if (( rc == 0 )); then
+    recent_add "$selected_host" "$remote_dir"
+    notify "Uploaded ${file_count} item(s) to ${selected_host}:${remote_dir}" "success"
+else
+    ui_error "Upload failed:\n${_TRANSPORT_ERROR}"
+    notify "Upload to ${selected_host}:${remote_dir} failed" "error"
+fi
+
+exit "$rc"
