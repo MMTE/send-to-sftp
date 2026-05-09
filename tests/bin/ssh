@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Mock ssh for testing — just prints expected output
+if [[ "${1:-}" == "-G" ]]; then
+    shift
+    echo "hostname ${1}.example.com"
+    echo "user testuser"
+    echo "port 22"
+    echo "identityfile ~/.ssh/id_rsa"
+else
+    echo "./"
+    echo "../"
+    echo "Documents/"
+    echo "Downloads/"
+fi
