@@ -35,6 +35,14 @@ cd send-to-sftp
 ./install.sh
 ```
 
+Or download the latest release:
+
+```bash
+curl -sL https://github.com/MMTE/send-to-sftp/releases/latest/download/send-to-sftp-0.1.0.tar.gz | tar xz
+cd send-to-sftp-0.1.0
+./install.sh
+```
+
 The installer:
 1. Detects your file manager(s) and installs the right-click hook for each one
 2. Drops the `send-to-sftp` script into `~/.local/bin`

@@ -21,4 +21,4 @@ package: $(DIST_FILE)
 $(DIST_FILE):
 	mkdir -p $(DIST_DIR)
 	tar czf $(DIST_FILE) \
-		bin/ lib/ integrations/ install.sh VERSION LICENSE README.md
+		bin/ lib/ integrations/ install.sh VERSION LICENSE README.md CHANGELOG.md CONTRIBUTING.md

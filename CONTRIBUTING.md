@@ -57,3 +57,12 @@ Example: `feat(nemo): add Nemo file manager integration`
 4. Add file-manager-specific install/cleanup logic to `install.sh`
 5. Add tests in `tests/` covering the integration script
 6. Update `README.md` with installation instructions for the new file manager
+
+## Releasing
+
+1. Update `VERSION` file and `CHANGELOG.md` with the new version
+2. Commit: `git commit -m "chore: bump version to X.Y.Z"`
+3. Tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`
+4. Push: `git push --follow-tags`
+5. Create GitHub Release: `gh release create vX.Y.Z --title "vX.Y.Z" --notes-from-tag`
+6. Upload tarball: `make package && gh release upload vX.Y.Z dist/send-to-sftp-X.Y.Z.tar.gz`
