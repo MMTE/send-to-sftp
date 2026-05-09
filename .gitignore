@@ -1,0 +1,6 @@
+*.swp
+*.bak
+*~
+tests/tmp/
+dist/
+.DS_Store
