@@ -8,10 +8,20 @@ Host backup
     HostName backup.example.com
     User deploy
 
+Host dev-box
+    HostName 192.168.1.100
+    User developer
+    Port 22
+    IdentityFile ~/.ssh/id_rsa
+
 Host staging-*
     HostName staging.example.com
     User admin
 
+Host *.example.com
+    User anonymous
+
 Host *
     ServerAliveInterval 60
     ServerAliveCountMax 3
+    AddKeysToAgent yes
