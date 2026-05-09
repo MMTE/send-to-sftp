@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feat/*]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Run shellcheck
+        run: |
+          shellcheck bin/send-to-sftp
+          shellcheck lib/*.sh
+          shellcheck install.sh
+          shellcheck tests/run.sh
+          shellcheck integrations/nautilus/Send\ to\ SFTP
+          shellcheck integrations/nemo/Send\ to\ SFTP
+          shellcheck integrations/caja/Send\ to\ SFTP
+
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install bats
+        run: sudo apt-get update && sudo apt-get install -y bats
+      - name: Run tests
+        run: ./tests/run.sh
