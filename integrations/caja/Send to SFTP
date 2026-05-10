@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Send to SFTP — Caja integration
+# Reads CAJA_SCRIPT_SELECTED_FILE_PATHS (newline-separated paths)
+# shellcheck shell=bash
+
+if [[ -z "${CAJA_SCRIPT_SELECTED_FILE_PATHS:-}" ]]; then
+    zenity --error --text="No files selected" 2>/dev/null || echo "Error: No files selected" >&2
+    exit 1
+fi
+
+mapfile -t files <<< "${CAJA_SCRIPT_SELECTED_FILE_PATHS}"
+files=("${files[@]%%[[:space:]]}")
+files=("${files[@]}")
+
+exec "${HOME}/.local/bin/send-to-sftp" "${files[@]}"
